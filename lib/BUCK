@@ -1,0 +1,86 @@
+maven_jar(
+  name = 'commons-lang',
+  id = 'org.apache.commons:commons-lang3:3.1',
+  sha1 = '905075e6c80f206bbe6cf1e809d2caa69f420c76',
+)
+
+maven_jar(
+  name = 'gson',
+  id = 'com.google.code.gson:gson:2.1',
+  sha1 = '2e66da15851f9f5b5079228f856c2f090ba98c38',
+)
+
+maven_jar(
+  name = 'guava',
+  id = 'com.google.guava:guava:18.0',
+  sha1 = 'cce0823396aa693798f8882e64213b1772032b09',
+)
+
+maven_jar(
+  name = 'joda-time',
+  id = 'joda-time:joda-time:2.3',
+  sha1 = '56498efd17752898cfcc3868c1b6211a07b12b8f',
+  exclude = [
+    'META-INF/LICENSE.txt',
+    'META-INF/NOTICE.txt',
+  ],
+)
+
+maven_jar(
+  name = 'jsr305',
+  id = 'com.google.code.findbugs:jsr305:3.0.0',
+  sha1 = '5871fb60dc68d67da54a663c3fd636a10a532948',
+  attach_source = False,
+)
+
+maven_jar(
+  name = 'prettify',
+  id = 'prettify:java-prettify:1.2.1',
+  sha1 = '29ad8d072f9d0b83d1a2e9aa6ccb0905e6d543c6',
+  repository = GERRIT,
+)
+
+maven_jar(
+  name = 'pegdown',
+  id = 'org.pegdown:pegdown:1.4.2',
+  sha1 = 'd96db502ed832df867ff5d918f05b51ba3879ea7',
+  license = 'Apache2.0',
+  deps = [':grappa'],
+)
+
+maven_jar(
+  name = 'grappa',
+  id = 'com.github.parboiled1:grappa:1.0.4',
+  sha1 = 'ad4b44b9c305dad7aa1e680d4b5c8eec9c4fd6f5',
+  license = 'Apache2.0',
+  deps = [
+    ':guava',
+    ':jitescript',
+    '//lib/ow2:ow2-asm',
+    '//lib/ow2:ow2-asm-analysis',
+    '//lib/ow2:ow2-asm-tree',
+    '//lib/ow2:ow2-asm-util',
+  ],
+)
+
+maven_jar(
+  name = 'jitescript',
+  id = 'me.qmx.jitescript:jitescript:0.4.0',
+  sha1 = '2e35862b0435c1b027a21f3d6eecbe50e6e08d54',
+  license = 'Apache2.0',
+  visibility = ['//lib:grappa'],
+)
+
+maven_jar(
+  name = 'servlet-api_2_5',
+  id = 'org.eclipse.jetty.orbit:javax.servlet:2.5.0.v201103041518',
+  sha1 = '9c16011c06bc6fe5e9dba080fcb40ddb4b75dc85',
+  unsign = True,
+)
+
+maven_jar(
+  name = 'servlet-api_3_0',
+  id = 'org.eclipse.jetty.orbit:javax.servlet:3.0.0.v201112011016',
+  sha1 = '0aaaa85845fb5c59da00193f06b8e5278d8bf3f8',
+  unsign = True,
+)

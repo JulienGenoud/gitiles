@@ -1,0 +1,160 @@
+# Copyright (C) 2014 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# This depends on gerrit-plugin-api and optionally
+# gerrit-plugin-gwtui (GWT module) and gwt-user libraries to be
+# available under:
+#
+#     //lib/gerrit:plugin-api
+#     //lib/gerrit:plugin-gwtui
+#     //lib/gwt:user
+#     //lib/gwt:dev
+#     //lib/ow2:ow2-asm
+#     //lib/ow2:ow2-asm-analysis
+#     //lib/ow2:ow2-asm-util
+#     //lib/ow2:ow2-asm-tree
+#
+# To provide it maven_jar() or bucklet can be used in lib/gerrit/BUCK:
+#
+# include_defs('//bucklets/maven_jar.bucklet')
+#
+# VER = '2.10'
+#
+# maven_jar(
+#   name = 'plugin-api',
+#   id = 'com.google.gerrit:gerrit-plugin-api:' + VER',
+# )
+#
+# maven_jar(
+#   name = 'plugin-gwtui',
+#   id = 'com.google.gerrit:gerrit-plugin-gwtui:' + VER',
+# )
+#
+
+GWT_JVM_ARGS = ['-Xmx512m']
+
+GWT_COMPILER_ARGS = [
+  '-XdisableClassMetadata',
+  '-XdisableCastChecking',
+]
+
+GERRIT_PLUGIN_API = ['//lib/gerrit:plugin-api']
+GERRIT_GWT_API = ['//lib/gerrit:gwtui-api']
+
+GWT_DEPS = [
+  '//lib/gwt:user',
+  '//lib/gwt:dev',
+  '//lib/ow2:ow2-asm',
+  '//lib/ow2:ow2-asm-analysis',
+  '//lib/ow2:ow2-asm-util',
+  '//lib/ow2:ow2-asm-tree',
+]
+
+STANDALONE_MODE = True
+
+def gerrit_plugin(
+    name,
+    deps = [],
+    provided_deps = [],
+    srcs = [],
+    resources = [],
+    gwt_module = None,
+    manifest_entries = [],
+    type = 'plugin',
+    visibility = ['PUBLIC']):
+  from multiprocessing import cpu_count
+  from os import path,getcwd
+  # TODO(davido): Remove this hack and replace all this mess with just
+  # ROOT = get_base_path()
+  # when this issue is fixed:
+  # https://github.com/facebook/buck/issues/200
+  # Or this PR is merged:
+  # https://github.com/facebook/buck/pull/201
+  ROOT = getcwd()
+  while not path.lexists(path.join(ROOT, '.buckconfig')):
+    ROOT = path.dirname(ROOT)
+  if path.exists(path.join(ROOT, 'VERSION')):
+    include_defs('//' + path.join(ROOT, 'VERSION'))
+    mf_cmd = 'v=%s && ' % PLUGIN_VERSION
+  elif path.exists(path.join(ROOT, '.git')):
+    mf_cmd = 'v=\$(git describe --always HEAD) && '
+  else: # cannot retrieve plugin version, guessing '1.0'
+    mf_cmd = 'v=1.0 && '
+  mf_cmd += 'echo "Manifest-Version: 1.0" >$OUT && '
+  mf_cmd += 'echo "Gerrit-ApiType: %s" >>$OUT && ' % type
+  mf_cmd += 'echo "Implementation-Version: $v" >>$OUT && '
+  mf_cmd += 'echo "Implementation-Vendor: Gerrit Code Review" >>$OUT'
+  for line in manifest_entries:
+    line = line.replace('$', '\$')
+    mf_cmd += ' && echo "%s" >> $OUT' % line
+  genrule(
+    name = name + '__manifest',
+    cmd = mf_cmd,
+    out = 'MANIFEST.MF',
+  )
+  gwt_deps = []
+  static_jars = []
+  if gwt_module:
+    gwt_deps = GWT_DEPS + GERRIT_GWT_API
+    static_jars = [':%s-static-jar' % name]
+  java_library(
+    name = name + '__plugin',
+    srcs = srcs,
+    resources = resources,
+    deps = deps,
+    provided_deps = GERRIT_PLUGIN_API + provided_deps + gwt_deps,
+    visibility = ['PUBLIC'],
+  )
+  if gwt_module:
+    java_library(
+      name = name + '__gwt_module',
+      srcs = [],
+      resources = list(set(srcs + resources)),
+      deps = deps,
+      provided_deps = gwt_deps,
+      visibility = ['PUBLIC'],
+    )
+    prebuilt_jar(
+      name = '%s-static-jar' % name,
+      binary_jar = ':%s-static' % name,
+    )
+    genrule(
+      name = '%s-static' % name,
+      cmd = 'mkdir -p $TMP/static' +
+        ';unzip -qd $TMP/static $(location %s)' %
+        ':%s__gwt_application' % name +
+        ';cd $TMP' +
+        ';zip -qr $OUT .',
+      out = '%s-static.zip' % name,
+    )
+    gwt_binary(
+      name = name + '__gwt_application',
+      modules = [gwt_module],
+      deps = gwt_deps,
+      module_deps = [':%s__gwt_module' % name],
+      local_workers = cpu_count(),
+      strict = True,
+      experimental_args = GWT_COMPILER_ARGS,
+      vm_args = GWT_JVM_ARGS,
+    )
+
+  java_binary(
+    name = name,
+    manifest_file = ':%s__manifest' % name,
+    merge_manifests = False,
+    deps = [
+      ':%s__plugin' % name,
+    ] + static_jars,
+    visibility = visibility,
+  )
